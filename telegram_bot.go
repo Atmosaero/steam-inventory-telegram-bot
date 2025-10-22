@@ -231,11 +231,54 @@ func (tb *TelegramBot) sendGameSelection(chatID int64, steamID string) {
 func (tb *TelegramBot) scanInventory(chatID int64, steamID, appID string) {
 	// Создаем ключ для кэша
 	cacheKey := fmt.Sprintf("%s_%s", steamID, appID)
-	
+
 	// Проверяем кэш
 	if cachedData, exists := tb.cache.Get(cacheKey); exists {
 		tb.sendMessage(chatID, "⚡ Использую кэшированные данные...")
-		tb.sendInventoryReport(chatID, cachedData, time.Since(time.Now()))
+		
+		// Формируем отчет из кэшированных данных
+		var totalValue, minPrice, maxPrice float64
+		var minItem, maxItem string
+		
+		for i, item := range cachedData {
+			if i == 0 {
+				minPrice = item.PriceValue
+				maxPrice = item.PriceValue
+				minItem = item.Name
+				maxItem = item.Name
+			}
+			
+			totalValue += item.PriceValue
+			
+			if item.PriceValue < minPrice {
+				minPrice = item.PriceValue
+				minItem = item.Name
+			}
+			if item.PriceValue > maxPrice {
+				maxPrice = item.PriceValue
+				maxItem = item.Name
+			}
+		}
+		
+		gameName := getGameName(appID)
+		response := fmt.Sprintf(`📊 *Статистика инвентаря %s* (из кэша)
+
+🎮 Игра: %s
+📦 Всего предметов: %d
+💵 Общая стоимость: %.2f ₽
+
+📈 *Ценовая статистика:*
+• Минимальная: %.2f ₽ (%s)
+• Максимальная: %.2f ₽ (%s)`,
+			steamID, gameName, len(cachedData), totalValue,
+			minPrice, minItem, maxPrice, maxItem)
+		
+		tb.sendMessage(chatID, response)
+		
+		// Показываем топ-5 самых дорогих предметов
+		if len(cachedData) > 0 {
+			tb.sendTopItems(chatID, cachedData)
+		}
 		return
 	}
 
