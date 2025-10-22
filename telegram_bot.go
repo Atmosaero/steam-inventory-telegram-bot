@@ -20,7 +20,9 @@ type InventoryItem struct {
 }
 
 type TelegramBot struct {
-	bot *tgbotapi.BotAPI
+	bot         *tgbotapi.BotAPI
+	cache       *Cache
+	rateLimiter *RateLimiter
 }
 
 func NewTelegramBot(token string) (*TelegramBot, error) {
@@ -32,7 +34,15 @@ func NewTelegramBot(token string) (*TelegramBot, error) {
 	bot.Debug = false
 	log.Printf("Авторизован как %s", bot.Self.UserName)
 
-	return &TelegramBot{bot: bot}, nil
+	// Создаем кэш на 30 минут и rate limiter на 3 секунды
+	cache := NewCache(30 * time.Minute)
+	rateLimiter := NewRateLimiter(3 * time.Second)
+
+	return &TelegramBot{
+		bot:         bot,
+		cache:       cache,
+		rateLimiter: rateLimiter,
+	}, nil
 }
 
 func (tb *TelegramBot) Start() {
@@ -219,9 +229,22 @@ func (tb *TelegramBot) sendGameSelection(chatID int64, steamID string) {
 }
 
 func (tb *TelegramBot) scanInventory(chatID int64, steamID, appID string) {
+	// Создаем ключ для кэша
+	cacheKey := fmt.Sprintf("%s_%s", steamID, appID)
+	
+	// Проверяем кэш
+	if cachedData, exists := tb.cache.Get(cacheKey); exists {
+		tb.sendMessage(chatID, "⚡ Использую кэшированные данные...")
+		tb.sendInventoryReport(chatID, cachedData, time.Since(time.Now()))
+		return
+	}
+
 	tb.sendMessage(chatID, "🔍 Сканирую инвентарь...")
 
 	startTime := time.Now()
+
+	// Ждем разрешения от rate limiter
+	tb.rateLimiter.Wait()
 
 	// Разрешаем Steam ID
 	resolvedID := resolveSteamID(steamID)
@@ -315,6 +338,9 @@ func (tb *TelegramBot) scanInventory(chatID int64, steamID, appID string) {
 ⏱ Время сканирования: %v`,
 		steamID, gameName, totalCount, len(items), totalValue,
 		minPrice, minItem, maxPrice, maxItem, duration)
+
+	// Сохраняем в кэш
+	tb.cache.Set(cacheKey, items)
 
 	tb.sendMessage(chatID, response)
 
