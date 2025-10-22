@@ -16,14 +16,14 @@ Telegram бот для просмотра инвентаря Steam профил�
 - `/scan <steam_id>` - Сканировать инвентарь
 - `/price <item_name>` - Найти цену предмета
 
-## Установка
+## Railway Deploy
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/your-template-id)
+
+## Локальная разработка
 
 1. Клонируйте репозиторий
 2. Установите зависимости: `go mod download`
 3. Создайте бота через @BotFather
 4. Установите переменную окружения `BOT_TOKEN`
 5. Запустите: `go run telegram_bot.go steam_api.go`
-
-## Railway Deploy
-
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/your-template-id)
